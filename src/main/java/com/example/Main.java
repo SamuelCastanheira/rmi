@@ -2,7 +2,7 @@ package com.example;
 
 public class Main {
 
-public static final int PORTA = 1099;
+public static final int PORTA = 9816;
 public static final String NOME_SERVICO = "JogoDaVelha";
 
 public static final String GRUPO_MULTICAST = "225.1.1.16";
