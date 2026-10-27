@@ -4,7 +4,7 @@ public class Main {
 
 public static final int PORTA = 9816;
 public static final String NOME_SERVICO = "JogoDaVelha";
-
+public static final String IP_SERVER = "152.92.236.16";
 public static final String GRUPO_MULTICAST = "225.1.1.16";
 public static final int PORTA_MULTICAST = 8816;
 
@@ -22,7 +22,7 @@ public static void main(String[] args) throws Exception {
         case "servidor" -> {
             System.setProperty(
                     "java.rmi.server.hostname",
-                    "152.92.236.16"
+                    IP_SERVER
             );
 
             Servidor.iniciar();
@@ -34,7 +34,7 @@ public static void main(String[] args) throws Exception {
 
         case "jogador" -> {
             Jogador jogador = new Jogador();
-            jogador.iniciar("152.92.236.16");
+            jogador.iniciar(IP_SERVER);
         }
 
         case "visualizador" -> {
