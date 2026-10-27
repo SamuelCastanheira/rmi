@@ -37,6 +37,7 @@
 
 
   <build>
+  <finalName>rmi</finalName>
     <plugins>
         <plugin>
             <groupId>org.apache.maven.plugins</groupId>

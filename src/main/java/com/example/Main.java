@@ -17,13 +17,12 @@ public static void main(String[] args) throws Exception {
     }
 
     String modo = args[0];
-    String ipServidor = args.length >= 2 ? args[1] : "localhost";
 
     switch (modo) {
         case "servidor" -> {
             System.setProperty(
                     "java.rmi.server.hostname",
-                    ipServidor
+                    "152.92.236.16"
             );
 
             Servidor.iniciar();
@@ -35,7 +34,7 @@ public static void main(String[] args) throws Exception {
 
         case "jogador" -> {
             Jogador jogador = new Jogador();
-            jogador.iniciar(ipServidor);
+            jogador.iniciar("152.92.236.16");
         }
 
         case "visualizador" -> {
