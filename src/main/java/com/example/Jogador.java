@@ -1,3 +1,4 @@
+// ===================== Jogador.java =====================
 package com.example;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -17,7 +18,6 @@ import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.Scanner;
-
 
 public class Jogador {
 
@@ -46,16 +46,15 @@ public class Jogador {
     private int numeroJogada = 0;
     private boolean minhaVez;
     private boolean fim;
-    
 
-     public void iniciar(String ipServidor) throws Exception {
+    public void iniciar(String ipServidor, int portaServidor) throws Exception {
         try {
             // Prepara a porta TCP antes de solicitar o pareamento.
             serverSocket = new ServerSocket(0);
 
             int minhaPorta = serverSocket.getLocalPort();
 
-            String meuIp = InetAddress.getLocalHost().getHostAddress();
+            String meuIp = descobrirIp(ipServidor);
 
             System.out.println("Seu IP: " + meuIp);
             System.out.println("Sua porta TCP: " + minhaPorta);
@@ -64,7 +63,7 @@ public class Jogador {
             // Fase 1: pareamento via RMI.
             Registry registry = LocateRegistry.getRegistry(
                     ipServidor,
-                    Main.PORTA
+                    portaServidor
             );
 
             IServidor servidor =
@@ -96,7 +95,8 @@ public class Jogador {
             meuSimbolo = inicia ? X : O;
             minhaVez = inicia;
 
-            System.out.println("Adversário encontrado: " + ipAdversario);
+            System.out.println("Adversário encontrado: " + ipAdversario
+                    + ":" + portaAdversario);
             System.out.println("Você joga com " + simbolo(meuSimbolo));
 
             // Fase 2: conexão TCP direta entre os jogadores.
@@ -139,6 +139,20 @@ public class Jogador {
         }
     }
 
+    // Descobre o IP local usado na rota até o servidor (não envia nada).
+    private String descobrirIp(String ipServidor) {
+        try (DatagramSocket s = new DatagramSocket()) {
+            s.connect(InetAddress.getByName(ipServidor), 9);
+            return s.getLocalAddress().getHostAddress();
+        } catch (Exception e) {
+            try {
+                return InetAddress.getLocalHost().getHostAddress();
+            } catch (Exception e2) {
+                return "127.0.0.1";
+            }
+        }
+    }
+
     private void jogarPartida() throws IOException {
         while (!fim) {
             if (minhaVez) {
@@ -155,9 +169,7 @@ public class Jogador {
         int posicao;
 
         while (true) {
-            System.out.print(
-                    "Sua jogada (1-9): "
-            );
+            System.out.print("Sua jogada (1-9): ");
 
             String texto = scanner.nextLine().trim();
 
@@ -183,6 +195,7 @@ public class Jogador {
 
         tabuleiro[posicao] = meuSimbolo;
 
+        // Do meu ponto de vista: "vit", "emp" ou "jog".
         String resultado = calcularResultado();
 
         ObjectNode mensagem = criarMensagem(
@@ -221,19 +234,10 @@ public class Jogador {
 
         String resultado = mensagem.get("Resultado").asText();
 
-        if (resultado.equals("der")) {
-            System.out.println("O adversário confirmou a derrota.");
-            fim = true;
-            return;
-        }
-
-        if (resultado.equals("vit") || resultado.equals("emp")) {
-            throw new IOException(
-                    "Mensagem final inesperada do adversário."
-            );
-        }
-
-        if (!resultado.equals("jog")) {
+        // O adversário pode declarar jog, vit (ele venceu) ou emp.
+        if (!resultado.equals("jog")
+                && !resultado.equals("vit")
+                && !resultado.equals("emp")) {
             throw new IOException("Resultado de jogada inválido.");
         }
 
@@ -244,20 +248,25 @@ public class Jogador {
             throw new IOException("Número de jogada inválido.");
         }
 
-        if (posicao < 0 || posicao >= 9
-                || tabuleiro[posicao] != VAZIO) {
+        if (posicao < 0 || posicao >= 9 || tabuleiro[posicao] != VAZIO) {
             throw new IOException("Jogada inválida recebida.");
         }
 
         int simboloAdversario = (meuSimbolo == X) ? O : X;
         tabuleiro[posicao] = simboloAdversario;
 
-        String resultadoCalculado = calcularResultado();
+        // Do meu ponto de vista: "der" = o adversário venceu.
+        String calculado = calcularResultado();
 
-        if (!resultadoCalculado.equals("jog")) {
+        String esperado = switch (calculado) {
+            case "der" -> "vit";
+            case "emp" -> "emp";
+            default -> "jog";
+        };
+
+        if (!resultado.equals(esperado)) {
             throw new IOException(
-                    "O adversário enviou um resultado inconsistente."
-            );
+                    "O adversário enviou um resultado inconsistente.");
         }
 
         numeroJogada++;
@@ -267,10 +276,19 @@ public class Jogador {
         imprimirTabuleiro();
 
         System.out.println(
-                "O adversário jogou na posição " + (posicao + 1) + "."
-        );
+                "O adversário jogou na posição " + (posicao + 1) + ".");
 
-        minhaVez = true;
+        switch (calculado) {
+            case "der" -> {
+                System.out.println("Você perdeu.");
+                fim = true;
+            }
+            case "emp" -> {
+                System.out.println("Empate!");
+                fim = true;
+            }
+            default -> minhaVez = true;
+        }
     }
 
     private ObjectNode criarMensagem(

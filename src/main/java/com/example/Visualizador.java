@@ -1,3 +1,4 @@
+// ===================== Visualizador.java =====================
 package com.example;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -6,11 +7,17 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.nio.charset.StandardCharsets;
 
 public class Visualizador {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
+    // Última mensagem exibida, para ignorar a duplicata
+    // (os dois jogadores enviam cada jogada ao grupo).
+    private String ultimaMensagem = "";
+
+    @SuppressWarnings("deprecation")
     public void iniciar() throws IOException {
         InetAddress grupo = InetAddress.getByName(Main.GRUPO_MULTICAST);
 
@@ -22,9 +29,9 @@ public class Visualizador {
             System.out.println("Porta: " + Main.PORTA_MULTICAST);
             System.out.println("Aguardando jogadas...\n");
 
-            while (true) {
-                byte[] buffer = new byte[4096];
+            byte[] buffer = new byte[4096];
 
+            while (true) {
                 DatagramPacket pacote =
                         new DatagramPacket(buffer, buffer.length);
 
@@ -34,8 +41,13 @@ public class Visualizador {
                         pacote.getData(),
                         pacote.getOffset(),
                         pacote.getLength(),
-                        java.nio.charset.StandardCharsets.UTF_8
+                        StandardCharsets.UTF_8
                 );
+
+                if (mensagem.equals(ultimaMensagem)) {
+                    continue; // duplicada
+                }
+                ultimaMensagem = mensagem;
 
                 exibirJogada(mensagem);
             }
@@ -71,12 +83,23 @@ public class Visualizador {
                 }
             }
 
-            System.out.println("\n\nResultado: " + json.path("Resultado").asText());
+            System.out.println("\n\nResultado: "
+                    + descreverResultado(json.path("Resultado").asText()));
             System.out.println("=============================");
         } catch (Exception e) {
             System.err.println("Erro ao interpretar jogada: " + e.getMessage());
             System.err.println("Mensagem recebida: " + mensagem);
         }
+    }
+
+    private String descreverResultado(String r) {
+        return switch (r) {
+            case "jog" -> "Partida em andamento";
+            case "vit" -> "Fim de jogo: quem acabou de jogar venceu";
+            case "der" -> "Fim de jogo: derrota confirmada";
+            case "emp" -> "Fim de jogo: empate";
+            default -> r;
+        };
     }
 
     private String simbolo(int valor) {
